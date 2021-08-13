@@ -35,7 +35,8 @@ func (d *Decoder) Close() error {
 	return nil
 }
 
-// Deserialize `data` according to the schema of `s`, and store the value into it. `s` must be a pointer type variable
+// Deserialize `data` according to the schema of `dst`, and store the value into it.
+// `dst` must be a pointer type variable
 // that points to the original schema of `data`.
 func Deserialize(dst interface{}, data []byte) error {
 	dec := NewDecoder(bytes.NewReader(data))
