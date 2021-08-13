@@ -18,12 +18,12 @@ func NewDecoder(reader io.ByteReader) *Decoder {
 	return &Decoder{reader: reader}
 }
 
-func (d *Decoder) Decode(dst interface{}) error {
+func (dec *Decoder) Decode(dst interface{}) error {
 	rt := reflect.TypeOf(dst)
 	if rt.Kind() != reflect.Ptr {
 		return errors.New("argument must be pointer")
 	}
-	val, err := deserialize(rt, d.reader)
+	val, err := dec.deserialize(reflect.TypeOf(dst).Elem())
 	if err != nil {
 		return err
 	}
@@ -38,17 +38,8 @@ func (d *Decoder) Close() error {
 // Deserialize `data` according to the schema of `s`, and store the value into it. `s` must be a pointer type variable
 // that points to the original schema of `data`.
 func Deserialize(dst interface{}, data []byte) error {
-	reader := bytes.NewReader(data)
-	rv := reflect.ValueOf(dst)
-	if rv.Kind() != reflect.Ptr {
-		return errors.New("passed struct must be pointer")
-	}
-	result, err := deserialize(reflect.TypeOf(dst).Elem(), reader)
-	if err != nil {
-		return err
-	}
-	rv.Elem().Set(reflect.ValueOf(result))
-	return nil
+	dec := NewDecoder(bytes.NewReader(data))
+	return dec.Decode(dst)
 }
 
 func read(reader io.ByteReader, n int) ([]byte, error) {
@@ -64,88 +55,96 @@ func readNBytes(n int, reader io.ByteReader) ([]byte, error) {
 		}
 		buf[i] = b
 	}
-
 	return buf, nil
 }
 
-func (d *Decoder) ReadNBytes(n int) (out []byte, err error) {
-	return readNBytes(n, d.reader)
+func (dec *Decoder) ReadNBytes(n int) (out []byte, err error) {
+	return readNBytes(n, dec.reader)
 }
 
-func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
+func (dec *Decoder) ReadUint8() (out uint8, err error) {
+	out, err = dec.ReadByte()
+	return
+}
+
+func (dec *Decoder) ReadByte() (out byte, err error) {
+	return dec.reader.ReadByte()
+}
+
+func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
 	if rt.Kind() == reflect.Uint8 {
-		tmp, err := read(reader, 1)
+		tmp, err := dec.ReadUint8()
 		if err != nil {
 			return nil, err
 		}
 		e := reflect.New(rt)
-		e.Elem().Set(reflect.ValueOf(uint8(tmp[0])).Convert(rt))
+		e.Elem().Set(reflect.ValueOf(tmp).Convert(rt))
 		return e.Elem().Interface(), nil
 	}
 
 	switch rt.Kind() {
 	case reflect.Int8:
-		tmp, err := read(reader, 1)
+		tmp, err := dec.ReadUint8()
 		if err != nil {
 			return nil, err
 		}
-		return int8(tmp[0]), nil
+		return int8(tmp), nil
 	case reflect.Int16:
-		tmp, err := read(reader, 2)
+		tmp, err := dec.ReadNBytes(2)
 		if err != nil {
 			return nil, err
 		}
 		return int16(binary.LittleEndian.Uint16(tmp)), nil
 	case reflect.Int32:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
 		return int32(binary.LittleEndian.Uint32(tmp)), nil
 	case reflect.Int64:
-		tmp, err := read(reader, 8)
+		tmp, err := dec.ReadNBytes(8)
 		if err != nil {
 			return nil, err
 		}
 		return int64(binary.LittleEndian.Uint64(tmp)), nil
 	case reflect.Int:
-		tmp, err := read(reader, 8)
+		tmp, err := dec.ReadNBytes(8)
 		if err != nil {
 			return nil, err
 		}
 		return int(binary.LittleEndian.Uint64(tmp)), nil
 	case reflect.Uint8:
-		tmp, err := read(reader, 1)
+		tmp, err := dec.ReadUint8()
 		if err != nil {
 			return nil, err
 		}
-		return uint8(tmp[0]), nil
+		return tmp, nil
 	case reflect.Uint16:
-		tmp, err := read(reader, 2)
+		tmp, err := dec.ReadNBytes(2)
 		if err != nil {
 			return nil, err
 		}
 		return uint16(binary.LittleEndian.Uint16(tmp)), nil
 	case reflect.Uint32:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
 		return uint32(binary.LittleEndian.Uint32(tmp)), nil
 	case reflect.Uint64:
-		tmp, err := read(reader, 8)
+		tmp, err := dec.ReadNBytes(8)
 		if err != nil {
 			return nil, err
 		}
 		return uint64(binary.LittleEndian.Uint64(tmp)), nil
 	case reflect.Uint:
-		tmp, err := read(reader, 8)
+		tmp, err := dec.ReadNBytes(8)
 		if err != nil {
 			return nil, err
 		}
 		return uint(binary.LittleEndian.Uint64(tmp)), nil
 	case reflect.Float32:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +155,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 		return f, nil
 	case reflect.Float64:
-		tmp, err := read(reader, 8)
+		tmp, err := dec.ReadNBytes(8)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +166,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 		return f, nil
 	case reflect.String:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +174,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		if l == 0 {
 			return "", nil
 		}
-		tmp2, err := read(reader, l)
+		tmp2, err := dec.ReadNBytes(l)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +184,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		l := rt.Len()
 		a := reflect.New(rt).Elem()
 		for i := 0; i < l; i++ {
-			av, err := deserialize(rt.Elem(), reader)
+			av, err := dec.deserialize(rt.Elem())
 			if err != nil {
 				return nil, err
 			}
@@ -193,7 +192,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 		return a.Interface(), nil
 	case reflect.Slice:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +202,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 			return a.Interface(), nil
 		}
 		for i := 0; i < l; i++ {
-			av, err := deserialize(rt.Elem(), reader)
+			av, err := dec.deserialize(rt.Elem())
 			if err != nil {
 				return nil, err
 			}
@@ -211,7 +210,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 		return a.Interface(), nil
 	case reflect.Map:
-		tmp, err := read(reader, 4)
+		tmp, err := dec.ReadNBytes(4)
 		if err != nil {
 			return nil, err
 		}
@@ -221,11 +220,11 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 			return m.Interface(), nil
 		}
 		for i := 0; i < l; i++ {
-			k, err := deserialize(rt.Key(), reader)
+			k, err := dec.deserialize(rt.Key())
 			if err != nil {
 				return nil, err
 			}
-			v, err := deserialize(rt.Elem(), reader)
+			v, err := dec.deserialize(rt.Elem())
 			if err != nil {
 				return nil, err
 			}
@@ -233,7 +232,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 		return m.Interface(), nil
 	case reflect.Ptr:
-		tmp, err := read(reader, 1)
+		tmp, err := dec.ReadNBytes(1)
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +242,7 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 			return p.Interface(), nil
 		} else {
 			p := reflect.New(rt.Elem())
-			de, err := deserialize(rt.Elem(), reader)
+			de, err := dec.deserialize(rt.Elem())
 			if err != nil {
 				return nil, err
 			}
@@ -252,13 +251,13 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 		}
 	case reflect.Struct:
 		if rt == reflect.TypeOf(*big.NewInt(0)) {
-			s, err := deserializeUint128(rt, reader)
+			s, err := dec.deserializeUint128(rt)
 			if err != nil {
 				return nil, err
 			}
 			return s, nil
 		} else {
-			s, err := deserializeStruct(rt, reader)
+			s, err := dec.deserializeStruct(rt)
 			if err != nil {
 				return nil, err
 			}
@@ -269,20 +268,20 @@ func deserialize(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
 	return nil, nil
 }
 
-func deserializeComplexEnum(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
+func (dec *Decoder) deserializeComplexEnum(rt reflect.Type) (interface{}, error) {
 	rv := reflect.New(rt).Elem()
 	// read enum identifier
-	tmp, err := read(reader, 1)
+	tmp, err := dec.ReadUint8()
 	if err != nil {
 		return nil, err
 	}
-	enum := Enum(tmp[0])
+	enum := Enum(tmp)
 	rv.Field(0).Set(reflect.ValueOf(enum))
 	// read enum field, if necessary
 	if int(enum)+1 >= rt.NumField() {
 		return nil, errors.New("complex enum too large")
 	}
-	fv, err := deserialize(rt.Field(int(enum)+1).Type, reader)
+	fv, err := dec.deserialize(rt.Field(int(enum) + 1).Type)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +290,7 @@ func deserializeComplexEnum(rt reflect.Type, reader io.ByteReader) (interface{},
 	return rv.Interface(), nil
 }
 
-func deserializeStruct(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
+func (dec *Decoder) deserializeStruct(rt reflect.Type) (interface{}, error) {
 	// handle complex enum, if necessary
 	if rt.NumField() > 0 {
 		// if the first field has type borsh.Enum and is flagged with "borsh_enum"
@@ -299,7 +298,7 @@ func deserializeStruct(rt reflect.Type, reader io.ByteReader) (interface{}, erro
 		firstField := rt.Field(0)
 		if firstField.Type.Kind() == reflect.Uint8 &&
 			firstField.Tag.Get("borsh_enum") == "true" {
-			return deserializeComplexEnum(rt, reader)
+			return dec.deserializeComplexEnum(rt)
 		}
 	}
 
@@ -312,7 +311,7 @@ func deserializeStruct(rt reflect.Type, reader io.ByteReader) (interface{}, erro
 			continue
 		}
 
-		fv, err := deserialize(rt.Field(i).Type, reader)
+		fv, err := dec.deserialize(rt.Field(i).Type)
 		if err != nil {
 			return nil, err
 		}
@@ -322,8 +321,8 @@ func deserializeStruct(rt reflect.Type, reader io.ByteReader) (interface{}, erro
 	return v.Interface(), nil
 }
 
-func deserializeUint128(rt reflect.Type, reader io.ByteReader) (interface{}, error) {
-	d, err := read(reader, 16)
+func (dec *Decoder) deserializeUint128(rt reflect.Type) (interface{}, error) {
+	d, err := dec.ReadNBytes(16)
 	if err != nil {
 		return nil, err
 	}
