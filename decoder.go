@@ -23,7 +23,7 @@ func (dec *Decoder) Decode(dst interface{}) error {
 	if rt.Kind() != reflect.Ptr {
 		return errors.New("argument must be pointer")
 	}
-	val, err := dec.deserialize(reflect.TypeOf(dst).Elem())
+	val, err := dec.deserialize(reflect.TypeOf(dst).Elem(), false)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (dec *Decoder) ReadByte() (out byte, err error) {
 	return dec.reader.ReadByte()
 }
 
-func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
+func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, error) {
 	if rt.Kind() == reflect.Uint8 {
 		tmp, err := dec.ReadUint8()
 		if err != nil {
@@ -181,7 +181,7 @@ func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
 		l := rt.Len()
 		a := reflect.New(rt).Elem()
 		for i := 0; i < l; i++ {
-			av, err := dec.deserialize(rt.Elem())
+			av, err := dec.deserialize(rt.Elem(), false)
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +199,7 @@ func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
 			return a.Interface(), nil
 		}
 		for i := 0; i < l; i++ {
-			av, err := dec.deserialize(rt.Elem())
+			av, err := dec.deserialize(rt.Elem(), false)
 			if err != nil {
 				return nil, err
 			}
@@ -217,11 +217,11 @@ func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
 			return m.Interface(), nil
 		}
 		for i := 0; i < l; i++ {
-			k, err := dec.deserialize(rt.Key())
+			k, err := dec.deserialize(rt.Key(), false)
 			if err != nil {
 				return nil, err
 			}
-			v, err := dec.deserialize(rt.Elem())
+			v, err := dec.deserialize(rt.Elem(), false)
 			if err != nil {
 				return nil, err
 			}
@@ -229,17 +229,19 @@ func (dec *Decoder) deserialize(rt reflect.Type) (interface{}, error) {
 		}
 		return m.Interface(), nil
 	case reflect.Ptr:
-		tmp, err := dec.ReadNBytes(1)
+		valid, err := dec.ReadUint8()
 		if err != nil {
 			return nil, err
 		}
-		valid := uint8(tmp[0])
 		if valid == 0 {
+			if keepNil {
+				return nil, nil
+			}
 			p := reflect.New(rt.Elem())
 			return p.Interface(), nil
 		} else {
 			p := reflect.New(rt.Elem())
-			de, err := dec.deserialize(rt.Elem())
+			de, err := dec.deserialize(rt.Elem(), false)
 			if err != nil {
 				return nil, err
 			}
@@ -278,7 +280,7 @@ func (dec *Decoder) deserializeComplexEnum(rt reflect.Type) (interface{}, error)
 	if int(enum)+1 >= rt.NumField() {
 		return nil, errors.New("complex enum too large")
 	}
-	fv, err := dec.deserialize(rt.Field(int(enum) + 1).Type)
+	fv, err := dec.deserialize(rt.Field(int(enum)+1).Type, true)
 	if err != nil {
 		return nil, err
 	}
@@ -308,11 +310,13 @@ func (dec *Decoder) deserializeStruct(rt reflect.Type) (interface{}, error) {
 			continue
 		}
 
-		fv, err := dec.deserialize(rt.Field(i).Type)
+		fv, err := dec.deserialize(rt.Field(i).Type, true)
 		if err != nil {
 			return nil, err
 		}
-		v.Field(i).Set(reflect.ValueOf(fv).Convert(field.Type))
+		if fv != nil {
+			v.Field(i).Set(reflect.ValueOf(fv).Convert(field.Type))
+		}
 	}
 
 	return v.Interface(), nil
