@@ -27,7 +27,7 @@ func (e *Encoder) Close() error {
 	return nil
 }
 
-// Serialize `s` into bytes according to Borsh's specification(https://borsh.io/).
+// Serialize `src` into bytes according to Borsh's specification (https://borsh.io/).
 //
 // The type mapping can be found at https://github.com/near/borsh-go.
 func Serialize(src interface{}) ([]byte, error) {
