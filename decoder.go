@@ -43,10 +43,6 @@ func Deserialize(dst interface{}, data []byte) error {
 	return dec.Decode(dst)
 }
 
-func read(reader io.ByteReader, n int) ([]byte, error) {
-	return readNBytes(n, reader)
-}
-
 func readNBytes(n int, reader io.ByteReader) ([]byte, error) {
 	buf := make([]byte, n)
 	for i := 0; i < n; i++ {
