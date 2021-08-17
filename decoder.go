@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"math/big"
@@ -27,7 +28,8 @@ func (dec *Decoder) Decode(dst interface{}) error {
 	if err != nil {
 		return err
 	}
-	reflect.ValueOf(dst).Elem().Set(reflect.ValueOf(val))
+	rv := reflect.ValueOf(dst)
+	rv.Elem().Set(reflect.ValueOf(val))
 	return nil
 }
 
@@ -262,9 +264,26 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 			}
 			return s, nil
 		}
+	case reflect.Bool:
+		val, err := dec.ReadBool()
+		if err != nil {
+			return nil, err
+		}
+		return val, nil
+	default:
+		panic(fmt.Sprintf("decoding not implemented for %v kind", rt.Kind()))
 	}
 
 	return nil, nil
+}
+
+func (dec *Decoder) ReadBool() (out bool, err error) {
+	b, err := dec.ReadByte()
+	if err != nil {
+		err = fmt.Errorf("ReadBool: %w", err)
+	}
+	out = b != 0
+	return
 }
 
 func (dec *Decoder) deserializeComplexEnum(rt reflect.Type) (interface{}, error) {
