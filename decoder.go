@@ -152,11 +152,10 @@ func (dec *Decoder) ReadUint() (uint, error) {
 }
 
 func (dec *Decoder) ReadFloat32() (float32, error) {
-	tmp, err := dec.ReadNBytes(4)
+	bits, err := dec.ReadUint32()
 	if err != nil {
 		return 0, err
 	}
-	bits := binary.LittleEndian.Uint32(tmp)
 	out := math.Float32frombits(bits)
 	if math.IsNaN(float64(out)) {
 		return 0, errors.New("NaN for float not allowed")
@@ -165,11 +164,10 @@ func (dec *Decoder) ReadFloat32() (float32, error) {
 }
 
 func (dec *Decoder) ReadFloat64() (float64, error) {
-	tmp, err := dec.ReadNBytes(8)
+	bits, err := dec.ReadUint64()
 	if err != nil {
 		return 0, err
 	}
-	bits := binary.LittleEndian.Uint64(tmp)
 	out := math.Float64frombits(bits)
 	if math.IsNaN(out) {
 		return 0, errors.New("NaN for float not allowed")
@@ -178,15 +176,14 @@ func (dec *Decoder) ReadFloat64() (float64, error) {
 }
 
 func (dec *Decoder) ReadString() (string, error) {
-	tmp, err := dec.ReadNBytes(4)
+	l, err := dec.ReadUint32()
 	if err != nil {
 		return "", err
 	}
-	l := int(binary.LittleEndian.Uint32(tmp))
 	if l == 0 {
 		return "", nil
 	}
-	tmp2, err := dec.ReadNBytes(l)
+	tmp2, err := dec.ReadNBytes(int(l))
 	if err != nil {
 		return "", err
 	}
@@ -207,89 +204,33 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 
 	switch rt.Kind() {
 	case reflect.Bool:
-		val, err := dec.ReadBool()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadBool()
 	case reflect.Int8:
-		val, err := dec.ReadInt8()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadInt8()
 	case reflect.Int16:
-		val, err := dec.ReadInt16()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadInt16()
 	case reflect.Int32:
-		val, err := dec.ReadInt32()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadInt32()
 	case reflect.Int64:
-		val, err := dec.ReadInt64()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadInt64()
 	case reflect.Int:
-		val, err := dec.ReadInt()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadInt()
 	case reflect.Uint8:
-		val, err := dec.ReadUint8()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadUint8()
 	case reflect.Uint16:
-		val, err := dec.ReadUint16()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadUint16()
 	case reflect.Uint32:
-		val, err := dec.ReadUint32()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadUint32()
 	case reflect.Uint64:
-		val, err := dec.ReadUint64()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadUint64()
 	case reflect.Uint:
-		val, err := dec.ReadUint()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadUint()
 	case reflect.Float32:
-		val, err := dec.ReadFloat32()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadFloat32()
 	case reflect.Float64:
-		val, err := dec.ReadFloat64()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadFloat64()
 	case reflect.String:
-		val, err := dec.ReadString()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
+		return dec.ReadString()
 	case reflect.Array:
 		l := rt.Len()
 		a := reflect.New(rt).Elem()
