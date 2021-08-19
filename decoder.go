@@ -302,16 +302,15 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 		}
 		return a.Interface(), nil
 	case reflect.Slice:
-		tmp, err := dec.ReadNBytes(4)
+		l, err := dec.ReadUint32()
 		if err != nil {
 			return nil, err
 		}
-		l := int(binary.LittleEndian.Uint32(tmp))
 		a := reflect.New(rt).Elem()
 		if l == 0 {
 			return a.Interface(), nil
 		}
-		for i := 0; i < l; i++ {
+		for i := 0; i < int(l); i++ {
 			av, err := dec.deserialize(rt.Elem(), false)
 			if err != nil {
 				return nil, err
@@ -320,16 +319,15 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 		}
 		return a.Interface(), nil
 	case reflect.Map:
-		tmp, err := dec.ReadNBytes(4)
+		l, err := dec.ReadUint32()
 		if err != nil {
 			return nil, err
 		}
-		l := int(binary.LittleEndian.Uint32(tmp))
 		m := reflect.MakeMap(rt)
 		if l == 0 {
 			return m.Interface(), nil
 		}
-		for i := 0; i < l; i++ {
+		for i := 0; i < int(l); i++ {
 			k, err := dec.deserialize(rt.Key(), false)
 			if err != nil {
 				return nil, err
