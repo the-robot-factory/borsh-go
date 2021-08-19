@@ -258,6 +258,9 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		} else {
 			err = enc.serializeStruct(rv)
 		}
+	case reflect.Invalid:
+		// skip
+		return nil
 	default:
 		return fmt.Errorf("encoding not supported for %q", rv)
 	}
