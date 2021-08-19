@@ -6,70 +6,73 @@ import (
 	"reflect"
 	strings2 "strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type A struct {
 	A int
 	B int32
+	C bool
+	D *bool
 }
 
 func TestSimple(t *testing.T) {
+	boolTrue := true
 	x := A{
 		A: 1,
 		B: 32,
+		C: true,
+		D: &boolTrue,
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	y := new(A)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 type B struct {
-	I8  int8
-	I16 int16
-	I32 int32
-	I64 int64
-	U8  uint8
-	U16 uint16
-	U32 uint32
-	U64 uint64
-	F32 float32
-	F64 float64
+	I8         int8
+	I16        int16
+	I32        int32
+	I64        int64
+	U8         uint8
+	U16        uint16
+	U32        uint32
+	U64        uint64
+	F32        float32
+	F64        float64
+	unexported int   // unexported fields are skipped.
+	Err        error `borsh_skip:"true"` // nil interfaces must be specified to be skipped.
 }
 
 func TestBasic(t *testing.T) {
 	x := B{
-		I8:  12,
-		I16: -1,
-		I32: 124,
-		I64: 1243,
-		U8:  1,
-		U16: 979,
-		U32: 123124,
-		U64: 1135351135,
-		F32: -231.23,
-		F64: 3121221.232,
+		I8:         12,
+		I16:        -1,
+		I32:        124,
+		I64:        1243,
+		U8:         1,
+		U16:        979,
+		U32:        123124,
+		U64:        1135351135,
+		F32:        -231.23,
+		F64:        3121221.232,
+		unexported: 333,
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	y := new(B)
+
+	// expect the unexported field to be zero because
+	// it shouldn't have been encoded or be tried to be decoded:
+	x.unexported = 0
+
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 type C struct {
@@ -86,20 +89,15 @@ func TestBasicContainer(t *testing.T) {
 		A3: [3]int{234, -123, 123},
 		S:  []int{21442, 421241241, 2424},
 		P:  ip,
-		M:  make(map[string]string),
+		M:  map[string]string{"foo": "bar"},
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(C)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 type N struct {
@@ -131,17 +129,12 @@ func TestNested(t *testing.T) {
 		},
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(N)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 type Dummy Enum
@@ -161,17 +154,13 @@ func TestSimpleEnum(t *testing.T) {
 		D: y,
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(D)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, x, *y)
 }
 
 type ComplexEnum struct {
@@ -199,17 +188,13 @@ func TestComplexEnum(t *testing.T) {
 		},
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	y := new(ComplexEnum)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Fatal(x, y)
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, x, *y)
 }
 
 type S struct {
@@ -221,17 +206,12 @@ func TestSet(t *testing.T) {
 		S: map[int]struct{}{124: struct{}{}, 214: struct{}{}, 24: struct{}{}, 53: struct{}{}},
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(S)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 type Skipped struct {
@@ -247,20 +227,15 @@ func TestSkipped(t *testing.T) {
 		C: 123,
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(Skipped)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if x.A != y.A || x.C != y.C {
-		t.Errorf("%v fields not equal to %v", x, y)
-	}
-	if y.B == x.B {
-		t.Errorf("didn't skip field B")
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, x.A, y.A)
+	require.Equal(t, x.C, y.C)
+	require.NotEqual(t, y.B, x.B, "didn't skip field B")
 }
 
 type E struct{}
@@ -268,33 +243,24 @@ type E struct{}
 func TestEmpty(t *testing.T) {
 	x := E{}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	if len(data) != 0 {
 		t.Error("not empty")
 	}
 	y := new(E)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+	require.Equal(t, x, *y)
 }
 
 func testValue(t *testing.T, v interface{}) {
 	data, err := Serialize(v)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	parsed := reflect.New(reflect.TypeOf(v))
 	err = Deserialize(parsed.Interface(), data)
-	if err != nil {
-		t.Error(err)
-	}
-	reflect.DeepEqual(v, parsed.Elem().Interface())
+	require.NoError(t, err)
+	require.Equal(t, v, parsed.Elem().Interface())
 }
 
 func TestStrings(t *testing.T) {
@@ -328,16 +294,16 @@ func TestSlices(t *testing.T) {
 	tests := []struct {
 		in []int32
 	}{
-		{makeInt32Slice(1000000000, 0)},
+		{nil}, // zero length slice
 		{makeInt32Slice(1000000000, 1)},
-		{makeInt32Slice(1000000000, 2)},
-		{makeInt32Slice(1000000000, 3)},
-		{makeInt32Slice(1000000000, 4)},
-		{makeInt32Slice(1000000000, 8)},
-		{makeInt32Slice(1000000000, 16)},
-		{makeInt32Slice(1000000000, 32)},
-		{makeInt32Slice(1000000000, 64)},
-		{makeInt32Slice(1000000000, 65)},
+		{makeInt32Slice(1000000001, 2)},
+		{makeInt32Slice(1000000002, 3)},
+		{makeInt32Slice(1000000003, 4)},
+		{makeInt32Slice(1000000004, 8)},
+		{makeInt32Slice(1000000005, 16)},
+		{makeInt32Slice(1000000006, 32)},
+		{makeInt32Slice(1000000007, 64)},
+		{makeInt32Slice(1000000008, 65)},
 	}
 
 	for _, tt := range tests {
@@ -393,15 +359,11 @@ func TestCustomType(t *testing.T) {
 		I64: 8,
 	}
 	data, err := Serialize(x)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	y := new(CustomType)
 	err = Deserialize(y, data)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(x, *y) {
-		t.Error(x, y)
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, x, *y)
 }
