@@ -15,15 +15,18 @@ type A struct {
 	B int32
 	C bool
 	D *bool
+	E *uint64
 }
 
 func TestSimple(t *testing.T) {
 	boolTrue := true
+	uint64Num := uint64(25464132585)
 	x := A{
 		A: 1,
 		B: 32,
 		C: true,
 		D: &boolTrue,
+		E: &uint64Num,
 	}
 	data, err := Serialize(x)
 	require.NoError(t, err)

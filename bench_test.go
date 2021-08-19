@@ -8,30 +8,32 @@ import (
 )
 
 type B struct {
-	I8  int8
-	I16 int16
-	I32 int32
-	I64 int64
-	U8  uint8
-	U16 uint16
-	U32 uint32
-	U64 uint64
-	F32 float32
-	F64 float64
+	I8   int8
+	I16  int16
+	I32  int32
+	I64  int64
+	U8   uint8
+	U16  uint16
+	U32  uint32
+	U64  uint64
+	F32  float32
+	F64  float64
+	Bool bool
 }
 
 func BenchmarkDeserialize(t *testing.B) {
 	x := B{
-		I8:  12,
-		I16: -1,
-		I32: 124,
-		I64: 1243,
-		U8:  1,
-		U16: 979,
-		U32: 123124,
-		U64: 1135351135,
-		F32: -231.23,
-		F64: 3121221.232,
+		I8:   12,
+		I16:  -1,
+		I32:  124,
+		I64:  1243,
+		U8:   1,
+		U16:  979,
+		U32:  123124,
+		U64:  1135351135,
+		F32:  -231.23,
+		F64:  3121221.232,
+		Bool: true,
 	}
 	data, err := borsh.Serialize(x)
 	if err != nil {
@@ -48,16 +50,17 @@ func BenchmarkDeserialize(t *testing.B) {
 
 func BenchmarkSerialize(t *testing.B) {
 	x := B{
-		I8:  12,
-		I16: -1,
-		I32: 124,
-		I64: 1243,
-		U8:  1,
-		U16: 979,
-		U32: 123124,
-		U64: 1135351135,
-		F32: -231.23,
-		F64: 3121221.232,
+		I8:   12,
+		I16:  -1,
+		I32:  124,
+		I64:  1243,
+		U8:   1,
+		U16:  979,
+		U32:  123124,
+		U64:  1135351135,
+		F32:  -231.23,
+		F64:  3121221.232,
+		Bool: true,
 	}
 	for i := 0; i < t.N; i++ {
 		_, _ = borsh.Serialize(x)
