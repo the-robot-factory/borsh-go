@@ -70,6 +70,130 @@ func (dec *Decoder) ReadByte() (out byte, err error) {
 	return dec.reader.ReadByte()
 }
 
+func (dec *Decoder) ReadBool() (out bool, err error) {
+	b, err := dec.ReadByte()
+	if err != nil {
+		err = fmt.Errorf("ReadBool: %w", err)
+	}
+	out = b != 0
+	return
+}
+
+func (dec *Decoder) ReadInt8() (int8, error) {
+	tmp, err := dec.ReadUint8()
+	if err != nil {
+		return 0, err
+	}
+	return int8(tmp), nil
+}
+
+func (dec *Decoder) ReadInt16() (int16, error) {
+	tmp, err := dec.ReadNBytes(2)
+	if err != nil {
+		return 0, err
+	}
+	return int16(binary.LittleEndian.Uint16(tmp)), nil
+}
+
+func (dec *Decoder) ReadInt32() (int32, error) {
+	tmp, err := dec.ReadNBytes(4)
+	if err != nil {
+		return 0, err
+	}
+	return int32(binary.LittleEndian.Uint32(tmp)), nil
+}
+
+func (dec *Decoder) ReadInt64() (int64, error) {
+	tmp, err := dec.ReadNBytes(8)
+	if err != nil {
+		return 0, err
+	}
+	return int64(binary.LittleEndian.Uint64(tmp)), nil
+}
+
+func (dec *Decoder) ReadInt() (int, error) {
+	tmp, err := dec.ReadNBytes(8)
+	if err != nil {
+		return 0, err
+	}
+	return int(binary.LittleEndian.Uint64(tmp)), nil
+}
+
+func (dec *Decoder) ReadUint16() (uint16, error) {
+	tmp, err := dec.ReadNBytes(2)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(binary.LittleEndian.Uint16(tmp)), nil
+}
+
+func (dec *Decoder) ReadUint32() (uint32, error) {
+	tmp, err := dec.ReadNBytes(4)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(binary.LittleEndian.Uint32(tmp)), nil
+}
+
+func (dec *Decoder) ReadUint64() (uint64, error) {
+	tmp, err := dec.ReadNBytes(8)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(binary.LittleEndian.Uint64(tmp)), nil
+}
+
+func (dec *Decoder) ReadUint() (uint, error) {
+	tmp, err := dec.ReadNBytes(8)
+	if err != nil {
+		return 0, err
+	}
+	return uint(binary.LittleEndian.Uint64(tmp)), nil
+}
+
+func (dec *Decoder) ReadFloat32() (float32, error) {
+	tmp, err := dec.ReadNBytes(4)
+	if err != nil {
+		return 0, err
+	}
+	bits := binary.LittleEndian.Uint32(tmp)
+	out := math.Float32frombits(bits)
+	if math.IsNaN(float64(out)) {
+		return 0, errors.New("NaN for float not allowed")
+	}
+	return out, nil
+}
+
+func (dec *Decoder) ReadFloat64() (float64, error) {
+	tmp, err := dec.ReadNBytes(8)
+	if err != nil {
+		return 0, err
+	}
+	bits := binary.LittleEndian.Uint64(tmp)
+	out := math.Float64frombits(bits)
+	if math.IsNaN(out) {
+		return 0, errors.New("NaN for float not allowed")
+	}
+	return out, nil
+}
+
+func (dec *Decoder) ReadString() (string, error) {
+	tmp, err := dec.ReadNBytes(4)
+	if err != nil {
+		return "", err
+	}
+	l := int(binary.LittleEndian.Uint32(tmp))
+	if l == 0 {
+		return "", nil
+	}
+	tmp2, err := dec.ReadNBytes(l)
+	if err != nil {
+		return "", err
+	}
+	out := string(tmp2)
+	return out, nil
+}
+
 func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, error) {
 	if rt.Kind() == reflect.Uint8 {
 		tmp, err := dec.ReadUint8()
@@ -82,103 +206,90 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 	}
 
 	switch rt.Kind() {
+	case reflect.Bool:
+		val, err := dec.ReadBool()
+		if err != nil {
+			return nil, err
+		}
+		return val, nil
 	case reflect.Int8:
-		tmp, err := dec.ReadUint8()
+		val, err := dec.ReadInt8()
 		if err != nil {
 			return nil, err
 		}
-		return int8(tmp), nil
+		return val, nil
 	case reflect.Int16:
-		tmp, err := dec.ReadNBytes(2)
+		val, err := dec.ReadInt16()
 		if err != nil {
 			return nil, err
 		}
-		return int16(binary.LittleEndian.Uint16(tmp)), nil
+		return val, nil
 	case reflect.Int32:
-		tmp, err := dec.ReadNBytes(4)
+		val, err := dec.ReadInt32()
 		if err != nil {
 			return nil, err
 		}
-		return int32(binary.LittleEndian.Uint32(tmp)), nil
+		return val, nil
 	case reflect.Int64:
-		tmp, err := dec.ReadNBytes(8)
+		val, err := dec.ReadInt64()
 		if err != nil {
 			return nil, err
 		}
-		return int64(binary.LittleEndian.Uint64(tmp)), nil
+		return val, nil
 	case reflect.Int:
-		tmp, err := dec.ReadNBytes(8)
+		val, err := dec.ReadInt()
 		if err != nil {
 			return nil, err
 		}
-		return int(binary.LittleEndian.Uint64(tmp)), nil
+		return val, nil
 	case reflect.Uint8:
-		tmp, err := dec.ReadUint8()
+		val, err := dec.ReadUint8()
 		if err != nil {
 			return nil, err
 		}
-		return tmp, nil
+		return val, nil
 	case reflect.Uint16:
-		tmp, err := dec.ReadNBytes(2)
+		val, err := dec.ReadUint16()
 		if err != nil {
 			return nil, err
 		}
-		return uint16(binary.LittleEndian.Uint16(tmp)), nil
+		return val, nil
 	case reflect.Uint32:
-		tmp, err := dec.ReadNBytes(4)
+		val, err := dec.ReadUint32()
 		if err != nil {
 			return nil, err
 		}
-		return uint32(binary.LittleEndian.Uint32(tmp)), nil
+		return val, nil
 	case reflect.Uint64:
-		tmp, err := dec.ReadNBytes(8)
+		val, err := dec.ReadUint64()
 		if err != nil {
 			return nil, err
 		}
-		return uint64(binary.LittleEndian.Uint64(tmp)), nil
+		return val, nil
 	case reflect.Uint:
-		tmp, err := dec.ReadNBytes(8)
+		val, err := dec.ReadUint()
 		if err != nil {
 			return nil, err
 		}
-		return uint(binary.LittleEndian.Uint64(tmp)), nil
+		return val, nil
 	case reflect.Float32:
-		tmp, err := dec.ReadNBytes(4)
+		val, err := dec.ReadFloat32()
 		if err != nil {
 			return nil, err
 		}
-		bits := binary.LittleEndian.Uint32(tmp)
-		f := math.Float32frombits(bits)
-		if math.IsNaN(float64(f)) {
-			return nil, errors.New("NaN for float not allowed")
-		}
-		return f, nil
+		return val, nil
 	case reflect.Float64:
-		tmp, err := dec.ReadNBytes(8)
+		val, err := dec.ReadFloat64()
 		if err != nil {
 			return nil, err
 		}
-		bits := binary.LittleEndian.Uint64(tmp)
-		f := math.Float64frombits(bits)
-		if math.IsNaN(f) {
-			return nil, errors.New("NaN for float not allowed")
-		}
-		return f, nil
+		return val, nil
 	case reflect.String:
-		tmp, err := dec.ReadNBytes(4)
+		val, err := dec.ReadString()
 		if err != nil {
 			return nil, err
 		}
-		l := int(binary.LittleEndian.Uint32(tmp))
-		if l == 0 {
-			return "", nil
-		}
-		tmp2, err := dec.ReadNBytes(l)
-		if err != nil {
-			return nil, err
-		}
-		s := string(tmp2)
-		return s, nil
+		return val, nil
 	case reflect.Array:
 		l := rt.Len()
 		a := reflect.New(rt).Elem()
@@ -264,26 +375,9 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 			}
 			return s, nil
 		}
-	case reflect.Bool:
-		val, err := dec.ReadBool()
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
 	default:
-		panic(fmt.Sprintf("decoding not implemented for %v kind", rt.Kind()))
+		return nil, fmt.Errorf("decoding not supported for %q", rt)
 	}
-
-	return nil, nil
-}
-
-func (dec *Decoder) ReadBool() (out bool, err error) {
-	b, err := dec.ReadByte()
-	if err != nil {
-		err = fmt.Errorf("ReadBool: %w", err)
-	}
-	out = b != 0
-	return
 }
 
 func (dec *Decoder) deserializeComplexEnum(rt reflect.Type) (interface{}, error) {
