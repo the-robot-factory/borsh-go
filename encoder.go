@@ -215,7 +215,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 	case reflect.Bool:
 		return enc.WriteBool(rv.Bool())
 	default:
-		panic(fmt.Sprintf("encoding not implemented for %v kind", rv.Kind()))
+		return fmt.Errorf("encoding not supported for %q", rv)
 	}
 	return err
 }
