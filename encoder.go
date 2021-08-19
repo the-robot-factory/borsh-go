@@ -42,7 +42,7 @@ func (enc *Encoder) serializeComplexEnum(rv reflect.Value) error {
 	t := rv.Type()
 	enum := Enum(rv.Field(0).Uint())
 	// write enum identifier
-	if _, err := enc.writer.Write([]byte{byte(enum)}); err != nil {
+	if err := enc.WriteByte(byte(enum)); err != nil {
 		return err
 	}
 	// write enum field, if necessary
@@ -96,70 +96,120 @@ func (enc *Encoder) serializeUint128(rv reflect.Value) error {
 	for i, j := 0, 15; i < j; i, j = i+1, j-1 {
 		d[i], d[j] = d[j], d[i]
 	}
-	_, err := enc.writer.Write(d[:])
-	return err
+	return enc.WriteBytes(d[:])
+}
+
+func (enc *Encoder) WriteBytes(bytes []byte) (err error) {
+	_, err = enc.writer.Write(bytes)
+	return
+}
+
+func (enc *Encoder) WriteBytesWithLength(bytes []byte) (err error) {
+	err = enc.WriteUint32(uint32(len(bytes)))
+	if err != nil {
+		return err
+	}
+	return enc.WriteBytes(bytes)
+}
+
+func (enc *Encoder) WriteByte(b byte) (err error) {
+	return enc.WriteBytes([]byte{b})
+}
+
+func (enc *Encoder) WriteString(s string) (err error) {
+	return enc.WriteBytesWithLength([]byte(s))
+}
+
+func (enc *Encoder) WriteUint8(i uint8) (err error) {
+	return enc.WriteByte(i)
+}
+
+func (enc *Encoder) WriteBool(b bool) (err error) {
+	var out byte
+	if b {
+		out = 1
+	}
+	return enc.WriteByte(out)
+}
+
+func (enc *Encoder) WriteUint16(i uint16) (err error) {
+	tmp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(tmp, i)
+	return enc.WriteBytes(tmp)
+}
+
+func (enc *Encoder) WriteInt16(i int16) (err error) {
+	return enc.WriteUint16(uint16(i))
+}
+
+func (enc *Encoder) WriteUint32(i uint32) (err error) {
+	tmp := make([]byte, 4)
+	binary.LittleEndian.PutUint32(tmp, i)
+	return enc.WriteBytes(tmp)
+}
+
+func (enc *Encoder) WriteInt32(i int32) (err error) {
+	return enc.WriteUint32(uint32(i))
+}
+
+func (enc *Encoder) WriteUint64(i uint64) (err error) {
+	tmp := make([]byte, 8)
+	binary.LittleEndian.PutUint64(tmp, i)
+	return enc.WriteBytes(tmp)
+}
+
+func (enc *Encoder) WriteInt64(i int64) (err error) {
+	return enc.WriteUint64(uint64(i))
+}
+
+func (enc *Encoder) WriteFloat32(f float64) (err error) {
+	tmp := make([]byte, 4)
+	if f == math.NaN() {
+		return errors.New("NaN float value")
+	}
+	binary.LittleEndian.PutUint32(tmp, math.Float32bits(float32(f)))
+	return enc.WriteBytes(tmp)
+}
+
+func (enc *Encoder) WriteFloat64(f float64) (err error) {
+	tmp := make([]byte, 8)
+	if f == math.NaN() {
+		return errors.New("NaN float value")
+	}
+	binary.LittleEndian.PutUint64(tmp, math.Float64bits(f))
+	return enc.WriteBytes(tmp)
 }
 
 func (enc *Encoder) serialize(rv reflect.Value) error {
 	var err error
 	switch rv.Kind() {
+	case reflect.Bool:
+		return enc.WriteBool(rv.Bool())
 	case reflect.Int8:
-		_, err = enc.writer.Write([]byte{byte((rv.Int()))})
+		return enc.WriteByte(byte(rv.Int()))
 	case reflect.Int16:
-		tmp := make([]byte, 2)
-		binary.LittleEndian.PutUint16(tmp, uint16(rv.Int()))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteInt16(int16(rv.Int()))
 	case reflect.Int32:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(rv.Int()))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteInt32(int32(rv.Int()))
 	case reflect.Int64:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, uint64(rv.Int()))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteInt64(int64(rv.Int()))
 	case reflect.Int:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, uint64(rv.Interface().(int)))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteInt64(int64(rv.Interface().(int)))
 	case reflect.Uint8:
 		// user-defined Enum type is also uint8, so can't directly assert type here
-		_, err = enc.writer.Write([]byte{byte(rv.Uint())})
+		return enc.WriteByte(byte(rv.Uint()))
 	case reflect.Uint16:
-		tmp := make([]byte, 2)
-		binary.LittleEndian.PutUint16(tmp, uint16(rv.Uint()))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteUint16(uint16(rv.Uint()))
 	case reflect.Uint32:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(rv.Uint()))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteUint32(uint32(rv.Uint()))
 	case reflect.Uint64, reflect.Uint:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, rv.Uint())
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteUint64(uint64(rv.Uint()))
 	case reflect.Float32:
-		tmp := make([]byte, 4)
-		f := rv.Float()
-		if f == math.NaN() {
-			return errors.New("NaN float value")
-		}
-		binary.LittleEndian.PutUint32(tmp, math.Float32bits(float32(f)))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteFloat32(rv.Float())
 	case reflect.Float64:
-		tmp := make([]byte, 8)
-		f := rv.Float()
-		if f == math.NaN() {
-			return errors.New("NaN float value")
-		}
-		binary.LittleEndian.PutUint64(tmp, math.Float64bits(f))
-		_, err = enc.writer.Write(tmp)
+		return enc.WriteFloat64(rv.Float())
 	case reflect.String:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(len(rv.String())))
-		_, err = enc.writer.Write(tmp)
-		if err != nil {
-			break
-		}
-		_, err = enc.writer.Write([]byte(rv.String()))
+		return enc.WriteString(rv.String())
 	case reflect.Array:
 		for i := 0; i < rv.Len(); i++ {
 			err = enc.serialize(rv.Index(i))
@@ -168,9 +218,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 			}
 		}
 	case reflect.Slice:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(rv.Len()))
-		_, err = enc.writer.Write(tmp)
+		err = enc.WriteUint32(uint32(rv.Len()))
 		if err != nil {
 			break
 		}
@@ -181,9 +229,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 			}
 		}
 	case reflect.Map:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(rv.Len()))
-		_, err = enc.writer.Write(tmp)
+		err = enc.WriteUint32(uint32(rv.Len()))
 		if err != nil {
 			break
 		}
@@ -198,9 +244,9 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		}
 	case reflect.Ptr:
 		if rv.IsNil() {
-			_, err = enc.writer.Write([]byte{0})
+			err = enc.WriteByte(0)
 		} else {
-			_, err = enc.writer.Write([]byte{1})
+			err = enc.WriteByte(1)
 			if err != nil {
 				break
 			}
@@ -212,33 +258,10 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		} else {
 			err = enc.serializeStruct(rv)
 		}
-	case reflect.Bool:
-		return enc.WriteBool(rv.Bool())
 	default:
 		return fmt.Errorf("encoding not supported for %q", rv)
 	}
 	return err
-}
-
-func (enc *Encoder) WriteByte(b byte) (err error) {
-	return enc.writeBytes([]byte{b})
-}
-
-func (enc *Encoder) WriteBool(b bool) (err error) {
-	var out byte
-	if b {
-		out = 1
-	}
-	return enc.WriteByte(out)
-}
-
-func (enc *Encoder) WriteUint8(i uint8) (err error) {
-	return enc.WriteByte(i)
-}
-
-func (enc *Encoder) writeBytes(bytes []byte) (err error) {
-	_, err = enc.writer.Write(bytes)
-	return
 }
 
 func vComp(keys []reflect.Value) func(int, int) bool {
