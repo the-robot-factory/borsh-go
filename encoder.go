@@ -200,7 +200,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 	case reflect.Int64:
 		return enc.WriteInt64(int64(rv.Int()))
 	case reflect.Int:
-		return enc.WriteInt64(int64(rv.Interface().(int)))
+		return enc.WriteInt64(int64(rv.Int()))
 	case reflect.Uint8:
 		// user-defined Enum type is also uint8, so can't directly assert type here
 		return enc.WriteByte(byte(rv.Uint()))
@@ -220,31 +220,31 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		for i := 0; i < rv.Len(); i++ {
 			err = enc.serialize(rv.Index(i))
 			if err != nil {
-				break
+				return err
 			}
 		}
 	case reflect.Slice:
 		err = enc.WriteUint32(uint32(rv.Len()))
 		if err != nil {
-			break
+			return err
 		}
 		for i := 0; i < rv.Len(); i++ {
 			err = enc.serialize(rv.Index(i))
 			if err != nil {
-				break
+				return err
 			}
 		}
 	case reflect.Map:
 		err = enc.WriteUint32(uint32(rv.Len()))
 		if err != nil {
-			break
+			return err
 		}
 		keys := rv.MapKeys()
 		sort.Slice(keys, vComp(keys))
 		for _, k := range keys {
 			err = enc.serialize(k)
 			if err != nil {
-				break
+				return err
 			}
 			err = enc.serialize(rv.MapIndex(k))
 		}
@@ -254,7 +254,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		} else {
 			err = enc.WriteByte(1)
 			if err != nil {
-				break
+				return err
 			}
 			err = enc.serialize(rv.Elem())
 		}
