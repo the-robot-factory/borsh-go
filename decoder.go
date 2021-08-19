@@ -364,6 +364,11 @@ func (dec *Decoder) deserializeStruct(rt reflect.Type) (interface{}, error) {
 		if tag.Get("borsh_skip") == "true" {
 			continue
 		}
+		// Skip unexported fields:
+		fn := v.FieldByName(field.Name)
+		if !fn.CanInterface() {
+			continue
+		}
 
 		fv, err := dec.deserialize(rt.Field(i).Type, true)
 		if err != nil {

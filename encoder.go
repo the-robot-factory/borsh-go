@@ -75,6 +75,12 @@ func (enc *Encoder) serializeStruct(rv reflect.Value) error {
 		if field.Tag.Get("borsh_skip") == "true" {
 			continue
 		}
+		// Skip unexported fields:
+		fn := rv.FieldByName(field.Name)
+		if !fn.CanInterface() {
+			continue
+		}
+
 		err := enc.serialize(rv.Field(i))
 		if err != nil {
 			return err
