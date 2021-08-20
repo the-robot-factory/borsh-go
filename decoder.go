@@ -317,6 +317,9 @@ func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, err
 	case reflect.Invalid:
 		// skip
 		return nil, nil
+	case reflect.Interface:
+		// skip
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("decoding not supported for %q", rt)
 	}

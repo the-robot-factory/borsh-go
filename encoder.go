@@ -188,6 +188,7 @@ func (enc *Encoder) WriteFloat64(f float64) (err error) {
 
 func (enc *Encoder) serialize(rv reflect.Value) error {
 	var err error
+
 	switch rv.Kind() {
 	case reflect.Bool:
 		return enc.WriteBool(rv.Bool())
@@ -271,6 +272,11 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 	case reflect.Invalid:
 		// skip
 		return nil
+	case reflect.Interface:
+		return nil
+		// if rv.Elem().Kind() == 0 {
+		// 	return nil
+		// }
 	default:
 		return fmt.Errorf("encoding not supported for %q", rv)
 	}
