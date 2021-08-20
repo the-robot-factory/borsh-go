@@ -200,6 +200,7 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 	case reflect.Int64:
 		return enc.WriteInt64(int64(rv.Int()))
 	case reflect.Int:
+		// NOTE: this is not true for x32 systems.
 		return enc.WriteInt64(int64(rv.Int()))
 	case reflect.Uint8:
 		// user-defined Enum type is also uint8, so can't directly assert type here
@@ -208,7 +209,10 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		return enc.WriteUint16(uint16(rv.Uint()))
 	case reflect.Uint32:
 		return enc.WriteUint32(uint32(rv.Uint()))
-	case reflect.Uint64, reflect.Uint:
+	case reflect.Uint64:
+		return enc.WriteUint64(uint64(rv.Uint()))
+	case reflect.Uint:
+		// NOTE: this is not true for x32 systems.
 		return enc.WriteUint64(uint64(rv.Uint()))
 	case reflect.Float32:
 		return enc.WriteFloat32(rv.Float())
