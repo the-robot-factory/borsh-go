@@ -187,6 +187,11 @@ func (enc *Encoder) WriteFloat64(f float64) (err error) {
 }
 
 func (enc *Encoder) serialize(rv reflect.Value) error {
+
+	if marshaler, ok := rv.Interface().(MarshalerBorsh); ok {
+		return marshaler.MarshalBorsh(enc)
+	}
+
 	var err error
 
 	switch rv.Kind() {
@@ -273,10 +278,9 @@ func (enc *Encoder) serialize(rv reflect.Value) error {
 		// skip
 		return nil
 	case reflect.Interface:
+		// skip
+		// TODO: check if is MarshalerBorsh
 		return nil
-		// if rv.Elem().Kind() == 0 {
-		// 	return nil
-		// }
 	default:
 		return fmt.Errorf("encoding not supported for %q", rv)
 	}
