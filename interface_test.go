@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Example struct {
@@ -29,25 +30,46 @@ func (e *Example) MarshalBorsh(encoder *Encoder) error {
 	return encoder.WriteUint32(e.Value)
 }
 
-func TestMarshalBorsh(t *testing.T) {
+func TestBorshEncodeDecode(t *testing.T) {
 	buf := new(bytes.Buffer)
-	e := &Example{Prefix: 0xaa, Value: 72}
+	x := &Example{Prefix: byte('b'), Value: 72}
 	enc := NewEncoder(buf)
-	enc.Encode(e)
+	err := enc.Encode(x)
+	require.NoError(t, err)
 
 	assert.Equal(t, []byte{
-		0xaa, 0x00, 0x00, 0x00, 0x48,
+		byte('b'), 72, 0x00, 0x00, 0,
+	}, buf.Bytes())
+
+	{
+		y := &Example{}
+		d := NewDecoder(buf)
+		err := d.Decode(y)
+		assert.NoError(t, err)
+		assert.Equal(t, x, y)
+	}
+}
+
+func TestBorshMarshal(t *testing.T) {
+	buf := new(bytes.Buffer)
+	e := &Example{Prefix: byte('b'), Value: 84}
+	enc := NewEncoder(buf)
+	err := enc.Encode(e)
+	require.NoError(t, err)
+
+	assert.Equal(t, []byte{
+		byte('b'), 84, 0x00, 0x00, 0x00,
 	}, buf.Bytes())
 }
 
-func TestUnmarshalBorsh(t *testing.T) {
+func TestBorshUnmarshal(t *testing.T) {
 	buf := []byte{
-		0xaa, 0x00, 0x00, 0x00, 0x48,
+		byte('b'), 72, 0x00, 0x00, 0x00,
 	}
 
 	e := &Example{}
 	d := NewDecoder(bytes.NewReader(buf))
 	err := d.Decode(e)
 	assert.NoError(t, err)
-	assert.Equal(t, e, &Example{Value: 72, Prefix: 0xaa})
+	assert.Equal(t, &Example{Value: 72, Prefix: byte('b')}, e)
 }

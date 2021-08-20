@@ -20,17 +20,11 @@ func NewDecoder(reader io.ByteReader) *Decoder {
 }
 
 func (dec *Decoder) Decode(dst interface{}) error {
-	rt := reflect.TypeOf(dst)
-	if rt.Kind() != reflect.Ptr {
+	rv := reflect.ValueOf(dst)
+	if rv.Kind() != reflect.Ptr {
 		return errors.New("argument must be pointer")
 	}
-	val, err := dec.deserialize(reflect.TypeOf(dst).Elem(), false)
-	if err != nil {
-		return err
-	}
-	rv := reflect.ValueOf(dst)
-	rv.Elem().Set(reflect.ValueOf(val))
-	return nil
+	return dec.deserialize(rv.Elem(), false)
 }
 
 func (d *Decoder) Close() error {
@@ -191,163 +185,249 @@ func (dec *Decoder) ReadString() (string, error) {
 	return out, nil
 }
 
-func (dec *Decoder) deserialize(rt reflect.Type, keepNil bool) (interface{}, error) {
+var (
+	marshalableType   = reflect.TypeOf((*BorshMarshaler)(nil)).Elem()
+	unmarshalableType = reflect.TypeOf((*BorshUnmarshaler)(nil)).Elem()
+)
+
+func (dec *Decoder) deserialize(rv reflect.Value, keepNil bool) error {
+	rt := rv.Type()
+	if reflect.PtrTo(rt).Implements(unmarshalableType) {
+		m := reflect.New(rt)
+		val := m.Interface()
+		err := val.(BorshUnmarshaler).UnmarshalBorsh(dec)
+		if err != nil {
+			return err
+		}
+		rv.Set(reflect.ValueOf(val).Elem())
+		return err
+	}
+
 	if rt.Kind() == reflect.Uint8 {
 		tmp, err := dec.ReadUint8()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		e := reflect.New(rt)
-		e.Elem().Set(reflect.ValueOf(tmp).Convert(rt))
-		return e.Elem().Interface(), nil
+		rv.Set(reflect.ValueOf(tmp).Convert(rt))
+		return nil
 	}
 
 	switch rt.Kind() {
 	case reflect.Bool:
-		return dec.ReadBool()
+		val, err := dec.ReadBool()
+		if err != nil {
+			return err
+		}
+		rv.SetBool(val)
+		return nil
 	case reflect.Int8:
-		return dec.ReadInt8()
+		val, err := dec.ReadInt8()
+		if err != nil {
+			return err
+		}
+		rv.SetInt(int64(val))
+		return nil
 	case reflect.Int16:
-		return dec.ReadInt16()
+		val, err := dec.ReadInt16()
+		if err != nil {
+			return err
+		}
+		rv.SetInt(int64(val))
+		return nil
 	case reflect.Int32:
-		return dec.ReadInt32()
+		val, err := dec.ReadInt32()
+		if err != nil {
+			return err
+		}
+		rv.SetInt(int64(val))
+		return nil
 	case reflect.Int64:
-		return dec.ReadInt64()
+		val, err := dec.ReadInt64()
+		if err != nil {
+			return err
+		}
+		rv.SetInt(val)
+		return nil
 	case reflect.Int:
-		return dec.ReadInt()
+		// TODO: check system x32
+		val, err := dec.ReadInt()
+		if err != nil {
+			return err
+		}
+		rv.SetInt(int64(val))
+		return nil
 	case reflect.Uint8:
-		return dec.ReadUint8()
+		val, err := dec.ReadUint8()
+		if err != nil {
+			return err
+		}
+		rv.SetUint(uint64(val))
+		return nil
 	case reflect.Uint16:
-		return dec.ReadUint16()
+		val, err := dec.ReadUint16()
+		if err != nil {
+			return err
+		}
+		rv.SetUint(uint64(val))
+		return nil
 	case reflect.Uint32:
-		return dec.ReadUint32()
+		val, err := dec.ReadUint32()
+		if err != nil {
+			return err
+		}
+		rv.SetUint(uint64(val))
+		return nil
 	case reflect.Uint64:
-		return dec.ReadUint64()
+		val, err := dec.ReadUint64()
+		if err != nil {
+			return err
+		}
+		rv.SetUint(val)
+		return nil
 	case reflect.Uint:
-		return dec.ReadUint()
+		// TODO: check system x32
+		val, err := dec.ReadUint()
+		if err != nil {
+			return err
+		}
+		rv.SetUint(uint64(val))
+		return nil
 	case reflect.Float32:
-		return dec.ReadFloat32()
+		val, err := dec.ReadFloat32()
+		if err != nil {
+			return err
+		}
+		rv.SetFloat(float64(val))
+		return nil
 	case reflect.Float64:
-		return dec.ReadFloat64()
+		val, err := dec.ReadFloat64()
+		if err != nil {
+			return err
+		}
+		rv.SetFloat(val)
+		return nil
 	case reflect.String:
-		return dec.ReadString()
+		val, err := dec.ReadString()
+		if err != nil {
+			return err
+		}
+		rv.SetString(val)
+		return nil
 	case reflect.Array:
 		l := rt.Len()
 		a := reflect.New(rt).Elem()
 		for i := 0; i < l; i++ {
-			av, err := dec.deserialize(rt.Elem(), false)
+			err := dec.deserialize(a.Index(i), false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			a.Index(i).Set(reflect.ValueOf(av))
 		}
-		return a.Interface(), nil
+		rv.Set(a)
+		return nil
 	case reflect.Slice:
 		l, err := dec.ReadUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		a := reflect.New(rt).Elem()
 		if l == 0 {
-			return a.Interface(), nil
+			return nil
 		}
+		rv.Set(reflect.MakeSlice(rt, int(l), int(l)))
 		for i := 0; i < int(l); i++ {
-			av, err := dec.deserialize(rt.Elem(), false)
+			err := dec.deserialize(rv.Index(i), false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			a = reflect.Append(a, reflect.ValueOf(av))
 		}
-		return a.Interface(), nil
+		return nil
 	case reflect.Map:
 		l, err := dec.ReadUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		m := reflect.MakeMap(rt)
+		rv.Set(reflect.MakeMap(rt))
 		if l == 0 {
-			return m.Interface(), nil
+			return nil
 		}
 		for i := 0; i < int(l); i++ {
-			k, err := dec.deserialize(rt.Key(), false)
+			key := reflect.New(rt.Key())
+			err := dec.deserialize(key.Elem(), false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			v, err := dec.deserialize(rt.Elem(), false)
+			val := reflect.New(rt.Elem())
+			err = dec.deserialize(val.Elem(), false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			m.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v))
+			rv.SetMapIndex(key.Elem(), val.Elem())
 		}
-		return m.Interface(), nil
+		return nil
 	case reflect.Ptr:
 		valid, err := dec.ReadUint8()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if valid == 0 {
 			if keepNil {
-				return nil, nil
+				return nil
 			}
-			p := reflect.New(rt.Elem())
-			return p.Interface(), nil
+			// rv.Set(reflect.Zero(rt))
+			return nil
 		} else {
 			p := reflect.New(rt.Elem())
-			de, err := dec.deserialize(rt.Elem(), false)
+			err := dec.deserialize(p.Elem(), false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			p.Elem().Set(reflect.ValueOf(de))
-			return p.Interface(), nil
+			rv.Set(p)
+			return nil
 		}
 	case reflect.Struct:
 		if rt == reflect.TypeOf(*big.NewInt(0)) {
-			s, err := dec.deserializeUint128(rt)
+			err := dec.deserializeUint128(rv)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			return s, nil
+			return nil
 		} else {
-			s, err := dec.deserializeStruct(rt)
+			err := dec.deserializeStruct(rv)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			return s, nil
+			return nil
 		}
 	case reflect.Invalid:
 		// skip
-		return nil, nil
+		return nil
 	case reflect.Interface:
 		// skip
-		return nil, nil
+		// TODO: check if is UnmarshalerBorsh
+		return nil
 	default:
-		return nil, fmt.Errorf("decoding not supported for %q", rt)
+		return fmt.Errorf("decoding not supported for %q", rt)
 	}
 }
 
-func (dec *Decoder) deserializeComplexEnum(rt reflect.Type) (interface{}, error) {
-	rv := reflect.New(rt).Elem()
+func (dec *Decoder) deserializeComplexEnum(rv reflect.Value) error {
+	rt := rv.Type()
 	// read enum identifier
 	tmp, err := dec.ReadUint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	enum := Enum(tmp)
-	rv.Field(0).Set(reflect.ValueOf(enum))
+	rv.Field(0).Set(reflect.ValueOf(enum).Convert(rv.Field(0).Type()))
 	// read enum field, if necessary
 	if int(enum)+1 >= rt.NumField() {
-		return nil, errors.New("complex enum too large")
+		return errors.New("complex enum too large")
 	}
-	fv, err := dec.deserialize(rt.Field(int(enum)+1).Type, true)
-	if err != nil {
-		return nil, err
-	}
-	rv.Field(int(enum) + 1).Set(reflect.ValueOf(fv))
-
-	return rv.Interface(), nil
+	return dec.deserialize(rv.Field(int(enum)+1), true)
 }
 
-func (dec *Decoder) deserializeStruct(rt reflect.Type) (interface{}, error) {
+func (dec *Decoder) deserializeStruct(rv reflect.Value) error {
+	rt := rv.Type()
+
 	// handle complex enum, if necessary
 	if rt.NumField() > 0 {
 		// if the first field has type borsh.Enum and is flagged with "borsh_enum"
@@ -355,40 +435,48 @@ func (dec *Decoder) deserializeStruct(rt reflect.Type) (interface{}, error) {
 		firstField := rt.Field(0)
 		if firstField.Type.Kind() == reflect.Uint8 &&
 			firstField.Tag.Get("borsh_enum") == "true" {
-			return dec.deserializeComplexEnum(rt)
+			return dec.deserializeComplexEnum(rv)
 		}
 	}
 
-	v := reflect.New(rt).Elem()
-
 	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		tag := field.Tag
+		structField := rt.Field(i)
+		tag := structField.Tag
 		if tag.Get("borsh_skip") == "true" {
 			continue
 		}
+
 		// Skip unexported fields:
-		fn := v.FieldByName(field.Name)
-		if !fn.CanInterface() {
+		v := rv.FieldByName(structField.Name)
+		if !v.CanInterface() {
+			continue
+		}
+		if !v.CanSet() {
+			// This means that the field cannot be set, to fix this
+			// we need to create a pointer to said field
+			if !v.CanAddr() {
+				// we cannot create a point to field skipping
+				return fmt.Errorf("unable to decode a none setup struc field %q with type %q", structField.Name, v.Kind())
+			}
+			v = v.Addr()
+		}
+		if !v.CanSet() {
 			continue
 		}
 
-		fv, err := dec.deserialize(rt.Field(i).Type, true)
+		err := dec.deserialize(v, true)
 		if err != nil {
-			return nil, err
-		}
-		if fv != nil {
-			v.Field(i).Set(reflect.ValueOf(fv).Convert(field.Type))
+			return err
 		}
 	}
 
-	return v.Interface(), nil
+	return nil
 }
 
-func (dec *Decoder) deserializeUint128(rt reflect.Type) (interface{}, error) {
+func (dec *Decoder) deserializeUint128(rv reflect.Value) error {
 	d, err := dec.ReadNBytes(16)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// make it big-endian
 	for i, j := 0, 15; i < j; i, j = i+1, j-1 {
@@ -396,5 +484,7 @@ func (dec *Decoder) deserializeUint128(rt reflect.Type) (interface{}, error) {
 	}
 	var u big.Int
 	u.SetBytes(d[:])
-	return u, nil
+
+	rv.Set(reflect.ValueOf(u))
+	return nil
 }

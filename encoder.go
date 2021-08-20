@@ -188,7 +188,7 @@ func (enc *Encoder) WriteFloat64(f float64) (err error) {
 
 func (enc *Encoder) serialize(rv reflect.Value) error {
 
-	if marshaler, ok := rv.Interface().(MarshalerBorsh); ok {
+	if marshaler, ok := rv.Interface().(BorshMarshaler); ok {
 		return marshaler.MarshalBorsh(enc)
 	}
 

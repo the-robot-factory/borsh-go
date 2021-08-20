@@ -1,9 +1,9 @@
 package borsh
 
-type MarshalerBorsh interface {
+type BorshMarshaler interface {
 	MarshalBorsh(encoder *Encoder) error
 }
 
-type UnmarshalerBorsh interface {
+type BorshUnmarshaler interface {
 	UnmarshalBorsh(decoder *Decoder) error
 }
