@@ -44,14 +44,14 @@ type CustomEncoding struct {
 	Value  uint32
 }
 
-func (e *CustomEncoding) MarshalBinary(encoder *Encoder) error {
+func (e *CustomEncoding) MarshalBorsh(encoder *Encoder) error {
 	if err := encoder.WriteByte(e.Prefix); err != nil {
 		return err
 	}
 	return encoder.WriteUint32(e.Value)
 }
 
-func (e *CustomEncoding) UnmarshalBinary(decoder *Decoder) (err error) {
+func (e *CustomEncoding) UnmarshalBorsh(decoder *Decoder) (err error) {
 	if e.Prefix, err = decoder.ReadByte(); err != nil {
 		return err
 	}
@@ -60,6 +60,10 @@ func (e *CustomEncoding) UnmarshalBinary(decoder *Decoder) (err error) {
 	}
 	return nil
 }
+
+var _ BorshMarshaler = &CustomEncoding{}
+var _ BorshUnmarshaler = &CustomEncoding{}
+
 func TestBorsh_kitchenSink(t *testing.T) {
 	boolTrue := true
 	uint64Num := uint64(25464132585)
