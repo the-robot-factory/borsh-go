@@ -345,10 +345,11 @@ func (dec *Decoder) deserialize(rv reflect.Value, keepNil bool) error {
 		if err != nil {
 			return err
 		}
-		rv.Set(reflect.MakeMap(rt))
 		if l == 0 {
+			// If the map has no content, keep it nil.
 			return nil
 		}
+		rv.Set(reflect.MakeMap(rt))
 		for i := 0; i < int(l); i++ {
 			key := reflect.New(rt.Key())
 			err := dec.deserialize(key.Elem(), false)
