@@ -1,4 +1,4 @@
-module github.com/gagliardetto/borsh-go
+module github.com/the-robot-factory/borsh-go
 
 go 1.15
 
